@@ -16,12 +16,13 @@ void setup()
   Serial.begin(115200);             // USB serial for debug messages
   Serial5.begin(3000000);           // Dynamixel bus serial at 3,000,000 bps
   Serial5.transmitterEnable(2);     // RS485 direction control pin (pin 2)
+  baudScanPing(0x03);               // Protocol 1.0 baud-sweep PING to motor ID 3
 
   //==================================== packet example ==================================== //
   // Dynamixel Motor velocity packet (Write instruction)
   buffer[0] = 0xFF;                 // header
   buffer[1] = 0xFF;                 // header
-  buffer[2] = 0x01;                 // ID = 1
+  buffer[2] = 0x03;                 // ID = 3
   buffer[3] = 0x05;                 // length = 5 (3 parameters + 2 bytes instruction/checksum)
   buffer[4] = 0x03;                 // instruction = WRITE
   buffer[5] = 0x20;                 // parameter 1 = address of goal position low byte
@@ -33,7 +34,7 @@ void setup()
   // Dynamixel Goal Position packet (Write instruction)
   buffer[0] = 0xFF;                 // header
   buffer[1] = 0xFF;                 // header
-  buffer[2] = 0x01;                 // ID = 1
+  buffer[2] = 0x03;                 // ID = 3
   buffer[3] = 0x05;                 // length = 5 (3 parameters + 2 bytes instruction/checksum)
   buffer[4] = 0x03;                 // instruction = WRITE
   buffer[5] = 0x1E;                 // parameter 1 = address of goal position low byte
@@ -45,7 +46,7 @@ void setup()
   // Dynamixel present position packet (Read instruction)
   buffer[0] = 0xFF;                 // header
   buffer[1] = 0xFF;                 // header
-  buffer[2] = 0x01;                 // ID = 1
+  buffer[2] = 0x03;                 // ID = 3
   buffer[3] = 0x05;                 // length = 5 (3 parameters + 2 bytes instruction/checksum)
   buffer[4] = 0x02;                 // instruction = READ
   buffer[5] = 0x24;                 // parameter 1 = address of present position request low byte
@@ -182,6 +183,123 @@ void reset_serial5_parameters()
 {
   Serial5_pkg_num = 0;
   Serial5_data_num = 0;
+}
+
+// Sweep common baud rates, send Protocol 1.0 PING to id, stop on first reply.
+// Leaves Serial5 at the discovered baud; restores 3000000 if nothing replies.
+void baudScanPing(byte id)
+{
+  const uint32_t bauds[] = {1000000, 57600, 115200, 2000000, 3000000};
+  const uint8_t  nbauds  = sizeof(bauds) / sizeof(bauds[0]);
+
+  // Build P1.0 PING packet once (id is fixed for the sweep)
+  buffer[0] = 0xFF;
+  buffer[1] = 0xFF;
+  buffer[2] = id;
+  buffer[3] = 0x02;                 // length = 2
+  buffer[4] = 0x01;                 // instruction = PING
+  buffer[5] = Checksum(buffer, 5);
+
+  for (uint8_t i = 0; i < nbauds; i++)
+  {
+    Serial5.begin(bauds[i]);
+    delay(50);
+    while (Serial5.available()) Serial5.read();  // flush stale bytes
+
+    Serial5.write(buffer, 6);
+    delay(2);                                    // let transceiver switch to RX
+
+    byte         rx[8];
+    int          rx_stored = 0;
+    int          rx_total  = 0;
+    unsigned long deadline = millis() + 300;
+    while (millis() < deadline)
+    {
+      if (Serial5.available())
+      {
+        byte b = Serial5.read();
+        if (rx_stored < 8) rx[rx_stored++] = b;
+        rx_total++;
+      }
+    }
+
+    Serial.print("[SCAN] baud=");
+    Serial.print(bauds[i]);
+    Serial.print(" rx_count=");
+    Serial.print(rx_total);
+    Serial.print(" first=");
+    for (int j = 0; j < rx_stored; j++)
+    {
+      if (rx[j] < 0x10) Serial.print("0");
+      Serial.print(rx[j], HEX);
+      Serial.print(" ");
+    }
+    Serial.println();
+
+    if (rx_total > 0)
+    {
+      Serial.print("[SCAN] HIT baud=");
+      Serial.println(bauds[i]);
+      return;
+    }
+  }
+  Serial5.begin(3000000);            // restore default if no motor found
+}
+
+// Block for window_ms milliseconds, printing every byte received on Serial5 in hex.
+// Prints a millis-offset timestamp every 4 bytes. Reports total byte count at the end.
+void dumpMotorRx(unsigned long window_ms)
+{
+  unsigned long t0       = millis();
+  unsigned long deadline = t0 + window_ms;
+  int           count    = 0;
+
+  Serial.print("[PING] RX: ");
+  while (millis() < deadline)
+  {
+    if (Serial5.available())
+    {
+      byte b = Serial5.read();
+      if (b < 0x10) Serial.print("0");
+      Serial.print(b, HEX);
+      Serial.print(" ");
+      count++;
+      if (count % 4 == 0)
+      {
+        Serial.print("[+");
+        Serial.print(millis() - t0);
+        Serial.print("ms] ");
+      }
+    }
+  }
+  if (count == 0)
+    Serial.print("(none)");
+  Serial.print(" | ");
+  Serial.print(count);
+  Serial.println(" byte(s)");
+}
+
+// Protocol 1.0 PING: FF FF <id> 02 01 <checksum>
+void pingMotor(byte id)
+{
+  buffer[0] = 0xFF;
+  buffer[1] = 0xFF;
+  buffer[2] = id;
+  buffer[3] = 0x02;                 // length = 2 (instruction + checksum)
+  buffer[4] = 0x01;                 // instruction = PING
+  buffer[5] = Checksum(buffer, 5);
+
+  Serial.print("[PING] TX: ");
+  for (int i = 0; i < 6; i++)
+  {
+    if (buffer[i] < 0x10) Serial.print("0");
+    Serial.print(buffer[i], HEX);
+    Serial.print(" ");
+  }
+  Serial.println();
+  Serial5.write(buffer, 6);
+  delay(2);
+  dumpMotorRx(500);
 }
 
 // Checksum calculation function
