@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>Vehicle Web Teleop</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div id="app">
+
+  <!-- ── Header ─────────────────────────────────────────────────────────── -->
+  <header>
+    <h1>&#9654; Vehicle Web Teleop</h1>
+    <div class="badge-row">
+      <div class="badge" id="badge-conn">
+        <span class="dot"></span>
+        <span id="badge-conn-text">Disconnected</span>
+      </div>
+      <div class="badge" id="badge-lock">
+        <span class="dot"></span>
+        <span id="badge-lock-text">No lock</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── Main ───────────────────────────────────────────────────────────── -->
+  <main>
+
+    <!-- Left column: joystick -->
+    <div class="card">
+      <h2>Joystick</h2>
+      <div id="joystick-wrap">
+        <canvas id="joystick-canvas" width="220" height="220"></canvas>
+      </div>
+    </div>
+
+    <!-- Right column: telemetry + keyboard -->
+    <div style="display:flex; flex-direction:column; gap:12px;">
+
+      <!-- Speed -->
+      <div class="card">
+        <h2>Speed</h2>
+        <div class="slider-row">
+          <label for="speed-slider">Multiplier</label>
+          <input type="range" id="speed-slider" min="5" max="100" value="60" step="5" />
+          <span id="speed-val">0.60×</span>
+        </div>
+      </div>
+
+      <!-- Telemetry -->
+      <div class="card">
+        <h2>Command</h2>
+        <div class="telem-row">
+          <span class="telem-label">Vx (fwd/rev)</span>
+          <span class="telem-value" id="tval-lx">0.000</span>
+        </div>
+        <div class="telem-row">
+          <span class="telem-label">Vy (strafe)</span>
+          <span class="telem-value" id="tval-ly">0.000</span>
+        </div>
+        <div class="telem-row">
+          <span class="telem-label">Vz (yaw)</span>
+          <span class="telem-value" id="tval-az">0.000</span>
+        </div>
+        <div class="telem-row" style="flex-direction:column; align-items:flex-start; gap:6px; padding-top:10px;">
+          <div class="motor-bar-wrap">
+            <span class="motor-label" style="width:28px;">Vx</span>
+            <div class="motor-bar-outer">
+              <div class="motor-bar-inner" id="bar-vx" style="width:0%;left:50%;"></div>
+            </div>
+            <span class="motor-val" id="barval-vx">0.00</span>
+          </div>
+          <div class="motor-bar-wrap">
+            <span class="motor-label" style="width:28px;">Vy</span>
+            <div class="motor-bar-outer">
+              <div class="motor-bar-inner" id="bar-vy" style="width:0%;left:50%;"></div>
+            </div>
+            <span class="motor-val" id="barval-vy">0.00</span>
+          </div>
+          <div class="motor-bar-wrap">
+            <span class="motor-label" style="width:28px;">Vz</span>
+            <div class="motor-bar-outer">
+              <div class="motor-bar-inner" id="bar-vz" style="width:0%;left:50%;"></div>
+            </div>
+            <span class="motor-val" id="barval-vz">0.00</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Keyboard hint + rotation buttons -->
+      <div class="card">
+        <h2>Keyboard (WASD + Q/E)</h2>
+        <!-- Rotation buttons (also triggered by Q / E) -->
+        <div style="display:flex; gap:8px; margin-bottom:10px;">
+          <button id="btn-rot-ccw" class="rot-btn" style="flex:1;">&#8634; Q (CCW)</button>
+          <button id="btn-rot-cw"  class="rot-btn" style="flex:1;">E (CW) &#8635;</button>
+        </div>
+        <div class="key-grid" style="grid-template-columns:repeat(4,32px); grid-template-rows:repeat(2,32px);">
+          <!-- row 0: Q W -->
+          <div class="key" id="key-q">Q</div>
+          <div></div>
+          <div class="key" id="key-w">W</div>
+          <div class="key" id="key-e">E</div>
+          <!-- row 1: A S D -->
+          <div class="key" id="key-a">A</div>
+          <div class="key" id="key-s">S</div>
+          <div class="key" id="key-d">D</div>
+          <div></div>
+        </div>
+        <p style="font-size:11px; color:var(--text-muted); margin-top:8px; text-align:center;">
+          W/S = fwd/rev &bull; A/D = strafe &bull; Q/E = rotate
+        </p>
+      </div>
+
+    </div><!-- /right column -->
+  </main>
+
+  <!-- ── Footer: controls ───────────────────────────────────────────────── -->
+  <footer>
+    <button id="btn-lock">Acquire Lock</button>
+    <button id="btn-estop">&#9632; E-STOP</button>
+  </footer>
+
+  <!-- ── Log strip ──────────────────────────────────────────────────────── -->
+  <div id="log" aria-live="polite"></div>
+
+</div><!-- /#app -->
+
+<script src="app.js"></script>
+</body>
+</html>
